@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Quality Dashboard</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+        
+        .leaflet-popup-content { font-size: 16px; font-weight: bold; }
+        .sev-minor { color: #f1c40f; } /* Yellow */
+        .sev-moderate { color: #e67e22; } /* Orange */
+        .sev-severe { color: #e74c3c; } /* Red */
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+        import { getDatabase, ref, onChildAdded } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-database.js";
+
+        // Your exact web app Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBmep7gkFMX12c-ZRTlOgRhMWN-_cQnbD4",
+            authDomain: "roadqualitysensor.firebaseapp.com",
+            databaseURL: "https://roadqualitysensor-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "roadqualitysensor",
+            storageBucket: "roadqualitysensor.firebasestorage.app",
+            messagingSenderId: "601129760688",
+            appId: "1:601129760688:web:253bea25e3aa17c39d0875",
+            measurementId: "G-Y7D60Z7Q5Y"
+        };
+
+        // Initialize Firebase App
+        const app = initializeApp(firebaseConfig);
+        
+        // Initialize Realtime Database
+        const database = getDatabase(app);
+
+        // ==========================================
+        // 4. MAP SETUP
+        // ==========================================
+        // Initialize the map and center it on Jamshedpur (Lat: 22.804, Lng: 86.202)
+        const map = L.map('map').setView([22.8046, 86.2029], 13);
+
+        // Add the standard OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // ==========================================
+        // 5. LIVE DATA FETCHING & PLOTTING
+        // ==========================================
+        // Create a reference to the 'anomalies' node in your database
+        const anomaliesRef = ref(database, 'anomalies');
+
+        // Listen for new children added to the 'anomalies' node
+        onChildAdded(anomaliesRef, (snapshot) => {
+            const data = snapshot.val();
+
+            // Only plot if GPS coordinates actually exist
+            if (data.latitude && data.longitude) {
+                
+                // Determine the color based on your physics engine's severity
+                let markerColor = '#f1c40f'; // Default Yellow (Minor)
+                let cssClass = 'sev-minor';
+                
+                if (data.severity === 'Moderate' || data.severity === 'MODERATE') {
+                    markerColor = '#e67e22'; // Orange
+                    cssClass = 'sev-moderate';
+                } else if (data.severity === 'Severe' || data.severity === 'SEVERE') {
+                    markerColor = '#e74c3c'; // Red
+                    cssClass = 'sev-severe';
+                }
+
+                // Create a colored circle on the map
+                const marker = L.circleMarker([data.latitude, data.longitude], {
+                    radius: 8,
+                    color: markerColor,
+                    fillColor: markerColor,
+                    fillOpacity: 0.8,
+                    weight: 1
+                }).addTo(map);
+
+                // Add a popup that appears when you click the dot
+                marker.bindPopup(`
+                    <span class="${cssClass}">Severity: ${data.severity}</span><br>
+                    Speed at impact: ${Math.round(data.speedKmh)} km/h
+                `);
+            }
+        });
+    </script>
+</body>
+</html>

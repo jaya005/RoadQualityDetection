@@ -1,0 +1,13 @@
+# Android build & cache
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+local.properties
+.DS_Store
+
+# Python & Notebook cache
+__pycache__/
+.ipynb_checkpoints/
+runs/

@@ -1,0 +1,4 @@
+train: /kaggle/input/datasets/aliabdelmenam/rdd-2022/RDD_SPLIT/train/images
+val: /kaggle/input/datasets/aliabdelmenam/rdd-2022/RDD_SPLIT/val/images
+nc: 4
+names: ['D00', 'D10', 'D20', 'D40']
