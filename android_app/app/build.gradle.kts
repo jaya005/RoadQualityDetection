@@ -77,3 +77,44 @@ dependencies {
     // Guava
     implementation("com.google.guava:guava:31.1-android")
 }
+
+// --- GOOGLE SERVICES JSON INJECTION TASK ---
+tasks.register("generateGoogleServicesJson") {
+    doLast {
+        // Navigate up from android_app/app/ to the root roadQualityDetection folder
+        val envFile = file("../../.env")
+        val envVars = mutableMapOf<String, String>()
+
+        // Read the .env file if it exists
+        if (envFile.exists()) {
+            envFile.forEachLine { line ->
+                if (line.contains("=") && !line.trimStart().startsWith("#")) {
+                    val parts = line.split("=", limit = 2)
+                    envVars[parts[0].trim()] = parts[1].trim()
+                }
+            }
+        } else {
+            logger.warn("No .env file found at ${envFile.absolutePath}")
+        }
+
+        // Locate the template inside the app module
+        val templateFile = file("google-services-template.json")
+        if (!templateFile.exists()) {
+            throw GradleException("Missing google-services-template.json in the app module")
+        }
+
+        // Replace placeholder and write the actual JSON
+        val templateContent = templateFile.readText()
+        val apiKey = envVars["GOOGLE_API_KEY"] ?: "MISSING_KEY"
+        val finalJson = templateContent.replace("GOOGLE_API_KEY", apiKey)
+
+        file("google-services.json").writeText(finalJson)
+    }
+}
+
+// Ensure the injection happens before the Google Services plugin runs
+afterEvaluate {
+    tasks.matching { it.name.matches(Regex("process.*GoogleServices")) }.configureEach {
+        dependsOn("generateGoogleServicesJson")
+    }
+}
