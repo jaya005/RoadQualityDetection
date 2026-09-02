@@ -12,16 +12,17 @@ public class BoundingBoxView extends View {
     private Paint textPaint;
     private ObjectDetectorHelper.Result currentResult;
 
+    // Zero-allocation text building to prevent GC stutter during onDraw
+    private final StringBuilder labelBuilder = new StringBuilder();
+
     public BoundingBoxView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        // Setup the Red Box
         boxPaint = new Paint();
         boxPaint.setColor(Color.RED);
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(8f);
 
-        // Setup the Text Label
         textPaint = new Paint();
         textPaint.setColor(Color.RED);
         textPaint.setTextSize(55f);
@@ -31,7 +32,7 @@ public class BoundingBoxView extends View {
 
     public void setResults(ObjectDetectorHelper.Result result) {
         this.currentResult = result;
-        invalidate(); // Triggers the screen to redraw instantly
+        invalidate();
     }
 
     @Override
@@ -39,26 +40,30 @@ public class BoundingBoxView extends View {
         super.onDraw(canvas);
 
         if (currentResult != null && currentResult.detected) {
-            // The AI outputs coordinates based on a 640x640 image.
-            // We must scale those coordinates to fit your physical phone screen.
-//            boolean isNormalized = currentResult.right <= 2.0f && currentResult.bottom <= 2.0f;
-//
-//            // Dynamically scale based on the model's format
-//            float scaleX = isNormalized ? getWidth() : (float) getWidth() / 640f;
-//            float scaleY = isNormalized ? getHeight() : (float) getHeight() / 640f;
-            float scaleX = (float) getWidth() / 640f;
-            float scaleY = (float) getHeight() / 640f;
+            // Because ObjectDetectorHelper letterboxes the image into a 640x640 square,
+            // stretching X and Y independently will warp the bounding box.
+            // We use Math.max to simulate CameraX's FILL_CENTER scaling behavior.
+            float scale = Math.max((float) getWidth() / 640f, (float) getHeight() / 640f);
 
-            float left = currentResult.left * scaleX;
-            float top = currentResult.top * scaleY;
-            float right = currentResult.right * scaleX;
-            float bottom = currentResult.bottom * scaleY;
+            // Calculate offsets to center the scaled 640x640 grid over the screen
+            float offsetX = (getWidth() - (640f * scale)) / 2f;
+            float offsetY = (getHeight() - (640f * scale)) / 2f;
 
-            // Draw the box and the confidence percentage
+            float left = (currentResult.left * scale) + offsetX;
+            float top = (currentResult.top * scale) + offsetY;
+            float right = (currentResult.right * scale) + offsetX;
+            float bottom = (currentResult.bottom * scale) + offsetY;
+
             canvas.drawRect(left, top, right, bottom, boxPaint);
 
-            String label = "Pothole " + Math.round(currentResult.confidence * 100) + "%";
-            canvas.drawText(label, left, top - 15, textPaint);
-        }
+            // Reuse StringBuilder instead of allocating a new String every frame
+// Inside onDraw(), replace the old labelBuilder logic:
+            labelBuilder.setLength(0);
+            labelBuilder.append(currentResult.label)
+                    .append(" ")
+                    .append(Math.round(currentResult.confidence * 100))
+                    .append("%");
+
+            canvas.drawText(labelBuilder.toString(), left, top - 15, textPaint);        }
     }
 }
